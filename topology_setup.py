@@ -9,9 +9,6 @@ import ipaddress
 #import code; code.interact(local=dict(globals(), **locals()))
 
 class MininetSDN:
-    net = None
-    controller_1 = None
-
     SUBNET = ipaddress.ip_network(unicode('10.42.0.0/24'))
     POX_PORT = 6633
 
@@ -59,7 +56,7 @@ class MininetSDN:
         
     def setup_hosts(self, count):
         hosts = []
-        for i in range(0,8):
+        for i in range(0,count):
             # We need to add +1 to the host variable because arrays start at 0
             n = i+1
             hosts.append(self.net.addHost(name="h"+str(n), ip=str(self.SUBNET[n]), mac="00:00:00:00:00:0"+str(n)))
