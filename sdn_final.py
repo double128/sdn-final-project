@@ -41,8 +41,9 @@ class SDNFinal:
             
             print(" \033[96m-> Initializing Pox controller...\033[0m")
             pox_pane.send_keys("cd pox")
-            pox_pane.send_keys("./pox.py samples.spanning_tree")
-            # Sleep for a few seconds so Pox can set itself up
+            #pox_pane.send_keys("./pox.py samples.pretty_log openflow.discovery forwarding.l2_learning openflow.spanning_tree --no-flood --hold-down flow_stats")
+            pox_pane.send_keys("./pox.py samples.pretty_log openflow.discovery forwarding.l2_learning openflow.spanning_tree --no-flood --hold-down misc.gephi_topo")
+            # Sleep for a few seconds so Pox can set itself up before we initialize mininet
             time.sleep(2)
 
             print(" \033[96m-> Initializing mininet network...\033[0m")

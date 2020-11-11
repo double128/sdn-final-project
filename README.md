@@ -8,6 +8,7 @@ $ mininet/util/install.sh -fw
 $ git clone http://github.com/noxrepo/pox
 $ pip install libtmux
 $ pip install pyyaml
+$ pip3 install networkx 	# DO NOT TYPE "pip" HERE, YOU NEED "pip3"
 ```
 
 Should this be in a virtual environment? Yes. Will this project be moved into a virtual environment? Maybe someday.
@@ -28,5 +29,5 @@ $ ./run.sh
 <switch>: 
 	<peer>: <port on "switch" that connects to "peer">
 ```
-
-
+* Pox requires Python3. Mininet requires Python2.7. KEEP THIS IN MIND. 
+* The Pox directory contains some necessary patches for the `topo_gephi` module to work. Make sure you use this fork of Pox. You will have a hard time if you don't.
