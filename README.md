@@ -7,6 +7,7 @@ $ git clone git://github.com/mininet/mininet
 $ mininet/util/install.sh -fw
 $ git clone http://github.com/noxrepo/pox
 $ pip install libtmux
+$ pip install pyyaml
 ```
 
 Should this be in a virtual environment? Yes. Will this project be moved into a virtual environment? Maybe someday.
@@ -22,5 +23,10 @@ $ ./run.sh
 * Since mininet has to run as root, we will also force `libtmux` to run as root. This means that if you run `tmux ls` after having started the script, you won't see anything there.
 	* This is because all tmux sessions will be hosted on `root`'s socket (/tmp/tmux-0/default), and not `$(whoami)`'s (/tmp/tmux-$UID/default). If you run `sudo su` and then `tmux ls`, you should see the session there.
 * You can leave the tmux session by hitting CTRL+B, then CTRL+D. This will detach you from the tmux session, but leave it running in the background. 
+* A YML file is used to set up all the links in the network. The format is:
+```
+<switch>: 
+	<peer>: <port on "switch" that connects to "peer">
+```
 
 
