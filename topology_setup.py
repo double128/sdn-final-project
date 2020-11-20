@@ -75,7 +75,8 @@ class MininetSDN:
 
     def add_link(self, conn1, port1, conn2, port2):
         try:
-            self.net.addLink(conn1, conn2, port1=port1, port2=port2)
+            # Set bw=100 to limit the max throughput to 100Mbps
+            self.net.addLink(conn1, conn2, port1=port1, port2=port2, bw=100)
         except Exception as e: # Mininet only throws "Exception" type exceptions. We can narrow this down, however.
             if "File exists" in str(e):
                 # We hit this point if the link already exists. Just skip it.
