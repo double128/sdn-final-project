@@ -28,14 +28,18 @@ def _handle_connectionup(event):
     g.add_node(event.dpid, name=sw_name)
 
 def _generate_host_list():
-    global gw
+    global g
+    host_list = []
+    for node in g.nodes(data=True):
+        print(node.get("host_mac"))
+
 
 def _timer_func ():
     global g
     hosts = []
-    for 
+   # for 
     #short_path = g.shortest_path(
-    for connection in core.openflow._connections.values():
+    #for connection in core.openflow._connections.values():
         #connection.send(of.ofp_stats_request(body=of.ofp_flow_stats_request()))
         #connection.send(of.ofp_stats_request(body=of.ofp_port_stats_request()))
     #log.debug("Sent %i flow/port stats request(s)", len(core.openflow._connections))
@@ -58,8 +62,8 @@ def _add_graph_edge(peer1, peer2, port1, port2, link_type):
         g.add_edge(peer1, peer2, port1=port1, port2=port2, usage=0, delay=0, weight=1.0)
     elif link_type == "host":
         # PEER1 MUST BE THE HOST DO NOT MESS THIS UP
-        _gen_link_state_log(peer1, peer2, "Adding new host-switch edge to graph")
-        g.add_edge("h"+str(peer1), "sw"+str(peer2), port1=port1, port2=port2)
+        _gen_link_state_log("h"+str(peer1), "sw"+str(peer2), "Adding new host-switch edge to graph")
+        g.add_edge(peer1, peer2, port1=port1, port2=port2)
 
 def _del_graph_edge(dpid1, dpid2):
     global g
@@ -78,13 +82,16 @@ def _set_graph_edge_state(dpid1, dpid2, state):
     _gen_link_state_log(dpid1, dpid2, "Updated link state in graph")
     #log.info(str(dpid1) + " -> " + str(dpid2) + ": Updated link state in graph")
 
-def _find_graph_node(attr, val):
-    return any([node for node in g.nodes(data=True) if node[1][attr] == val])
+#def _find_graph_node(attr, val):
+#    global g
+#    return any([node for node in g.nodes(data=True) if node[1][attr] == val])
 
-def _get_node_id_by_name(node_name):
-    return [node for node in g.nodes(data=True) if node[1]['name'] == node_name]
+def _get_node_obj_by_name(node_name):
+    global g
+    return [node for node in g.nodes(data="name") if node[1] == node_name]
 
 def _get_node_by_mac_addr(node_mac):
+    global g
     for node in g.nodes(data=True):
         try:
             # NOTE: Debugging
@@ -96,23 +103,22 @@ def _get_node_by_mac_addr(node_mac):
             continue
     #return [node for node in g.nodes(data=True) if node[1]['host_mac'] == node_mac]
 
-def _packet_handler(packet, packet_in):
-    pass
-
 def _handle_packetin(event):
+    global g
     packet = event.parsed
     host_src_mac = str(packet.src)
     host_id = host_src_mac[-1]      # This should not be passed into networkx, this is JUST for getting the name of the node (which corresponds to MAC address)
     host_name = "h" + str(host_id)
-        
-    # If our host isn't in our graph object, we need to add it
-    if not _find_graph_node("name", host_name):
+   
+    node_obj = _get_node_obj_by_name(host_name)
+    # If we don't get a result back for this, this means there's no node for this host yet
+    if not node_obj:
         # Since we need to provide an ID for each node, we can just increment the number of nodes by 1 to get a unique ID
         host_node_id = g.number_of_nodes() + 1
         g.add_node(host_node_id, name=host_name, host_mac=host_src_mac)
     else:
-        host_node_id = _get_node_id_by_name(host_name)[0][0]
-        
+        host_node_id = node_obj[0][0]
+
     # Now that we either added a new host node or confirmed it already exists... let's check for edges in the graph
     host_port = 0 # This will ALWAYS be zero; hosts connect to switches via port 0
     switch_port = event.port # We can grab this info from the event object
@@ -120,11 +126,10 @@ def _handle_packetin(event):
 
     # Add an edge between the host and the switch if it doesn't exist already
     if not g.has_edge(host_node_id, sw_dpid):
-        # NOTE: host_node_id MUST be the first arg here
+    #    # NOTE: host_node_id MUST be the first arg here
         _add_graph_edge(host_node_id, sw_dpid, host_port, switch_port, "host")
      
     #packet_dst = packet.dst
-
 
     #of.ofp_packet_out()
 
@@ -141,7 +146,6 @@ def _handle_packetin(event):
 
     #if packet.dst not in 
     #print(packet_dst)
-    #_dump_graph_json_data()
 
     
     #in_port = event.ofp.in_port
@@ -159,18 +163,12 @@ def _gen_link_state_log(peer1, peer2, msg):
 def _dump_graph_json_data():
     global g
     print(json.dumps(json_graph.node_link_data(g),indent=2))
-    
-def _handle_queuestats_received(event):
-    print(event.stats)
 
 def launch():
     global g
     g = nx.MultiDiGraph()
     
     core.openflow.addListenerByName("ConnectionUp", _handle_connectionup)
-    core.openflow.addListenerByName("FlowStatsReceived", _handle_flowstats_received) 
-    core.openflow.addListenerByName("PortStatsReceived", _handle_portstats_received) 
-    core.openflow.addListenerByName("QueueStatsReceived", _handle_queuestats_received)
     core.openflow_discovery.addListenerByName("LinkEvent", _handle_linkevent)
     core.openflow.addListenerByName("PacketIn", _handle_packetin)
 
