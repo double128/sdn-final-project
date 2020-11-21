@@ -27,16 +27,46 @@ def _handle_connectionup(event):
     sw_name = "sw" + str(event.dpid)
     g.add_node(event.dpid, name=sw_name)
 
-def _generate_host_list():
+# Generate a list of *host* node IDs in the NX graph
+def _generate_nx_host_list():
     global g
     host_list = []
     for node in g.nodes(data=True):
-        print(node.get("host_mac"))
+        print(node)
+       #if node[1]:
+       #    host_list.append(node[0])
+    return host_list
 
+# Generate a list of *switch* node IDs in the NX graph
+def _generate_nx_switch_list():
+    global g
+    switch_list = []
+    # TODO: Not.... this. This is really fucking redundant. Try to find a way to merge this with the above method because I AM NOT HAVING THIS
+    for node in g.nodes(data="host_mac"):
+        if not node[1]:
+            switch_list.append(node[0])
 
 def _timer_func ():
     global g
-    hosts = []
+    hosts = _generate_nx_host_list()
+    print(hosts)
+    '''
+    if hosts:
+        for h in hosts:
+            other_hosts = hosts[:]  # Create a clone of the existing hosts list, but very fastly (according to https://stackoverflow.com/a/26875847)
+            other_hosts.remove(h)   # We're essentially creating a list that contains all hosts EXCEPT what is currently "h"
+            # WE HAVE TO GO DEEPER
+            # BIG O TIME IS A PSYOP MEANT TO HOLD BACK PROGRAMMERS
+            # TAKE NOTE!
+            for o in other_hosts:
+                spath = nx.shortest_path(g, source=h, target=o)
+                print("#### BEST PATH FOR " + str(h) + " -> " + str(o))
+                print(spath)
+
+    '''
+
+    #nx.shortest_path(g, source=
+
    # for 
     #short_path = g.shortest_path(
     #for connection in core.openflow._connections.values():
@@ -62,7 +92,7 @@ def _add_graph_edge(peer1, peer2, port1, port2, link_type):
         g.add_edge(peer1, peer2, port1=port1, port2=port2, usage=0, delay=0, weight=1.0)
     elif link_type == "host":
         # PEER1 MUST BE THE HOST DO NOT MESS THIS UP
-        _gen_link_state_log("h"+str(peer1), "sw"+str(peer2), "Adding new host-switch edge to graph")
+        _gen_link_state_log(peer1, peer2, "Adding new host-switch edge to graph")
         g.add_edge(peer1, peer2, port1=port1, port2=port2)
 
 def _del_graph_edge(dpid1, dpid2):
@@ -103,14 +133,30 @@ def _get_node_by_mac_addr(node_mac):
             continue
     #return [node for node in g.nodes(data=True) if node[1]['host_mac'] == node_mac]
 
+def _drop_packet_handler(packet):
+    msg = of.ofp_flow_mod()
+    msg.match = of.ofp_match.from_packet(packet)
+    msg.buffer_id = event.ofp.buffer_id
+    print(msg)
+    self.connection.send(msg)
+
+
 def _handle_packetin(event):
     global g
     packet = event.parsed
+    print("===PACKET===")
+    print(packet)
+    print(packet.src)
+    print("============")
+    #if packet.type == packet.LLDP_TYPE or packet.dst.isBridgeFiltered():
+    #    _drop_packet_handler(packet)
+    
     host_src_mac = str(packet.src)
     host_id = host_src_mac[-1]      # This should not be passed into networkx, this is JUST for getting the name of the node (which corresponds to MAC address)
     host_name = "h" + str(host_id)
    
     node_obj = _get_node_obj_by_name(host_name)
+    print(node_obj)
     # If we don't get a result back for this, this means there's no node for this host yet
     if not node_obj:
         # Since we need to provide an ID for each node, we can just increment the number of nodes by 1 to get a unique ID
@@ -166,14 +212,15 @@ def _dump_graph_json_data():
 
 def launch():
     global g
-    g = nx.MultiDiGraph()
+    #g = nx.MultiDiGraph()
+    g = nx.Graph()
     
-    core.openflow.addListenerByName("ConnectionUp", _handle_connectionup)
-    core.openflow_discovery.addListenerByName("LinkEvent", _handle_linkevent)
-    core.openflow.addListenerByName("PacketIn", _handle_packetin)
-
-
-    Timer(5, _timer_func, recurring=True)
+    def start():
+        core.openflow.addListenerByName("ConnectionUp", _handle_connectionup)
+        core.openflow_discovery.addListenerByName("LinkEvent", _handle_linkevent)
+        core.openflow.addListenerByName("PacketIn", _handle_packetin)
+        Timer(5, _timer_func, recurring=True)
+    core.call_when_ready(start, ('openflow', 'openflow_discovery'))
 
 # TODO:
 # Add a broadcast flow rule on ConnectionUp for each switch that matches any Ethernet traffic to 255.255.255.255 with action flood
