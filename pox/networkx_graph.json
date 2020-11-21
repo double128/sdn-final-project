@@ -1,0 +1,708 @@
+{
+  "directed": true,
+  "multigraph": true,
+  "graph": {},
+  "nodes": [
+    {
+      "name": "sw4",
+      "id": 4
+    },
+    {
+      "name": "sw1",
+      "id": 1
+    },
+    {
+      "name": "sw3",
+      "id": 3
+    },
+    {
+      "name": "sw2",
+      "id": 2
+    },
+    {
+      "name": "h2",
+      "host_mac": "00:00:00:00:00:02",
+      "id": 5
+    },
+    {
+      "name": "h5",
+      "host_mac": "be:da:c2:8e:cf:35",
+      "id": 6
+    },
+    {
+      "name": "h1",
+      "host_mac": "00:00:00:00:00:01",
+      "id": 7
+    },
+    {
+      "name": "h8",
+      "host_mac": "00:00:00:00:00:08",
+      "id": 8
+    },
+    {
+      "name": "hb",
+      "host_mac": "6e:8f:50:ff:96:2b",
+      "id": 9
+    },
+    {
+      "name": "h9",
+      "host_mac": "7e:10:52:9b:a6:09",
+      "id": 10
+    },
+    {
+      "name": "he",
+      "host_mac": "6e:af:69:ef:24:0e",
+      "id": 11
+    },
+    {
+      "name": "h0",
+      "host_mac": "1a:66:cc:d1:fa:d0",
+      "id": 12
+    },
+    {
+      "name": "h4",
+      "host_mac": "00:00:00:00:00:04",
+      "id": 13
+    },
+    {
+      "name": "h7",
+      "host_mac": "ba:a0:1f:d0:3d:47",
+      "id": 14
+    },
+    {
+      "name": "ha",
+      "host_mac": "5a:5b:af:fd:11:5a",
+      "id": 15
+    },
+    {
+      "name": "h6",
+      "host_mac": "00:00:00:00:00:06",
+      "id": 16
+    },
+    {
+      "name": "h3",
+      "host_mac": "00:00:00:00:00:03",
+      "id": 17
+    }
+  ],
+  "links": [
+    {
+      "port1": 1,
+      "port2": 3,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "state": false,
+      "source": 4,
+      "target": 1,
+      "key": 0
+    },
+    {
+      "port1": 1,
+      "port2": 3,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 4,
+      "target": 1,
+      "key": 1
+    },
+    {
+      "port1": 1,
+      "port2": 3,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 4,
+      "target": 1,
+      "key": 2
+    },
+    {
+      "port1": 1,
+      "port2": 3,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 4,
+      "target": 1,
+      "key": 3
+    },
+    {
+      "port1": 3,
+      "port2": 3,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "state": false,
+      "source": 4,
+      "target": 3,
+      "key": 0
+    },
+    {
+      "port1": 3,
+      "port2": 3,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 4,
+      "target": 3,
+      "key": 1
+    },
+    {
+      "port1": 3,
+      "port2": 3,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 4,
+      "target": 3,
+      "key": 2
+    },
+    {
+      "port1": 3,
+      "port2": 3,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 4,
+      "target": 3,
+      "key": 3
+    },
+    {
+      "port1": 2,
+      "port2": 3,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "state": false,
+      "source": 4,
+      "target": 2,
+      "key": 0
+    },
+    {
+      "port1": 2,
+      "port2": 3,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 4,
+      "target": 2,
+      "key": 1
+    },
+    {
+      "port1": 2,
+      "port2": 3,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 4,
+      "target": 2,
+      "key": 2
+    },
+    {
+      "port1": 2,
+      "port2": 3,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 4,
+      "target": 2,
+      "key": 3
+    },
+    {
+      "port1": 3,
+      "port2": 1,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "state": false,
+      "source": 1,
+      "target": 4,
+      "key": 0
+    },
+    {
+      "port1": 3,
+      "port2": 1,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 1,
+      "target": 4,
+      "key": 1
+    },
+    {
+      "port1": 3,
+      "port2": 1,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 1,
+      "target": 4,
+      "key": 2
+    },
+    {
+      "port1": 3,
+      "port2": 1,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 1,
+      "target": 4,
+      "key": 3
+    },
+    {
+      "port1": 2,
+      "port2": 1,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "state": false,
+      "source": 1,
+      "target": 3,
+      "key": 0
+    },
+    {
+      "port1": 2,
+      "port2": 1,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 1,
+      "target": 3,
+      "key": 1
+    },
+    {
+      "port1": 2,
+      "port2": 1,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 1,
+      "target": 3,
+      "key": 2
+    },
+    {
+      "port1": 2,
+      "port2": 1,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 1,
+      "target": 3,
+      "key": 3
+    },
+    {
+      "port1": 1,
+      "port2": 1,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "state": false,
+      "source": 1,
+      "target": 2,
+      "key": 0
+    },
+    {
+      "port1": 1,
+      "port2": 1,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 1,
+      "target": 2,
+      "key": 1
+    },
+    {
+      "port1": 1,
+      "port2": 1,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 1,
+      "target": 2,
+      "key": 2
+    },
+    {
+      "port1": 1,
+      "port2": 1,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 1,
+      "target": 2,
+      "key": 3
+    },
+    {
+      "port1": 1,
+      "port2": 2,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "state": false,
+      "source": 3,
+      "target": 1,
+      "key": 0
+    },
+    {
+      "port1": 1,
+      "port2": 2,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 3,
+      "target": 1,
+      "key": 1
+    },
+    {
+      "port1": 1,
+      "port2": 2,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 3,
+      "target": 1,
+      "key": 2
+    },
+    {
+      "port1": 1,
+      "port2": 2,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 3,
+      "target": 1,
+      "key": 3
+    },
+    {
+      "port1": 3,
+      "port2": 3,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "state": false,
+      "source": 3,
+      "target": 4,
+      "key": 0
+    },
+    {
+      "port1": 3,
+      "port2": 3,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 3,
+      "target": 4,
+      "key": 1
+    },
+    {
+      "port1": 3,
+      "port2": 3,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 3,
+      "target": 4,
+      "key": 2
+    },
+    {
+      "port1": 3,
+      "port2": 3,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 3,
+      "target": 4,
+      "key": 3
+    },
+    {
+      "port1": 2,
+      "port2": 2,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "state": false,
+      "source": 3,
+      "target": 2,
+      "key": 0
+    },
+    {
+      "port1": 2,
+      "port2": 2,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 3,
+      "target": 2,
+      "key": 1
+    },
+    {
+      "port1": 2,
+      "port2": 2,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 3,
+      "target": 2,
+      "key": 2
+    },
+    {
+      "port1": 2,
+      "port2": 2,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 3,
+      "target": 2,
+      "key": 3
+    },
+    {
+      "port1": 1,
+      "port2": 1,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "state": false,
+      "source": 2,
+      "target": 1,
+      "key": 0
+    },
+    {
+      "port1": 1,
+      "port2": 1,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 2,
+      "target": 1,
+      "key": 1
+    },
+    {
+      "port1": 1,
+      "port2": 1,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 2,
+      "target": 1,
+      "key": 2
+    },
+    {
+      "port1": 1,
+      "port2": 1,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 2,
+      "target": 1,
+      "key": 3
+    },
+    {
+      "port1": 3,
+      "port2": 2,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "state": false,
+      "source": 2,
+      "target": 4,
+      "key": 0
+    },
+    {
+      "port1": 3,
+      "port2": 2,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 2,
+      "target": 4,
+      "key": 1
+    },
+    {
+      "port1": 3,
+      "port2": 2,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 2,
+      "target": 4,
+      "key": 2
+    },
+    {
+      "port1": 3,
+      "port2": 2,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 2,
+      "target": 4,
+      "key": 3
+    },
+    {
+      "port1": 2,
+      "port2": 2,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "state": false,
+      "source": 2,
+      "target": 3,
+      "key": 0
+    },
+    {
+      "port1": 2,
+      "port2": 2,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 2,
+      "target": 3,
+      "key": 1
+    },
+    {
+      "port1": 2,
+      "port2": 2,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 2,
+      "target": 3,
+      "key": 2
+    },
+    {
+      "port1": 2,
+      "port2": 2,
+      "usage": 0,
+      "delay": 0,
+      "weight": 1.0,
+      "source": 2,
+      "target": 3,
+      "key": 3
+    },
+    {
+      "port1": 0,
+      "port2": 5,
+      "source": 5,
+      "target": 1,
+      "key": 0
+    },
+    {
+      "port1": 0,
+      "port2": 1,
+      "source": 5,
+      "target": 4,
+      "key": 0
+    },
+    {
+      "port1": 0,
+      "port2": 2,
+      "source": 6,
+      "target": 3,
+      "key": 0
+    },
+    {
+      "port1": 0,
+      "port2": 3,
+      "source": 6,
+      "target": 4,
+      "key": 0
+    },
+    {
+      "port1": 0,
+      "port2": 3,
+      "source": 6,
+      "target": 2,
+      "key": 0
+    },
+    {
+      "port1": 0,
+      "port2": 4,
+      "source": 7,
+      "target": 1,
+      "key": 0
+    },
+    {
+      "port1": 0,
+      "port2": 5,
+      "source": 8,
+      "target": 4,
+      "key": 0
+    },
+    {
+      "port1": 0,
+      "port2": 1,
+      "source": 9,
+      "target": 3,
+      "key": 0
+    },
+    {
+      "port1": 0,
+      "port2": 1,
+      "source": 10,
+      "target": 1,
+      "key": 0
+    },
+    {
+      "port1": 0,
+      "port2": 1,
+      "source": 11,
+      "target": 2,
+      "key": 0
+    },
+    {
+      "port1": 0,
+      "port2": 2,
+      "source": 12,
+      "target": 2,
+      "key": 0
+    },
+    {
+      "port1": 0,
+      "port2": 5,
+      "source": 13,
+      "target": 2,
+      "key": 0
+    },
+    {
+      "port1": 0,
+      "port2": 2,
+      "source": 14,
+      "target": 1,
+      "key": 0
+    },
+    {
+      "port1": 0,
+      "port2": 3,
+      "source": 14,
+      "target": 3,
+      "key": 0
+    },
+    {
+      "port1": 0,
+      "port2": 4,
+      "source": 14,
+      "target": 4,
+      "key": 0
+    },
+    {
+      "port1": 0,
+      "port2": 3,
+      "source": 15,
+      "target": 1,
+      "key": 0
+    },
+    {
+      "port1": 0,
+      "port2": 5,
+      "source": 16,
+      "target": 3,
+      "key": 0
+    },
+    {
+      "port1": 0,
+      "port2": 4,
+      "source": 17,
+      "target": 2,
+      "key": 0
+    }
+  ]
+}

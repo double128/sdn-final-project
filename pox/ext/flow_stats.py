@@ -60,10 +60,12 @@ def _add_graph_edge(peer1, peer2, port1, port2, link_type):
         # All switch-switch edges are initialized with a weight of 1.0. This weight value is adjusted as bandwidth and delay calculations run
         # NOTE: I'm removing the "state" arg because I don't think we'll need it
         g.add_edge(peer1, peer2, port1=port1, port2=port2, usage=0, delay=0, weight=1.0)
+        _save_graph_json_data()
     elif link_type == "host":
         # PEER1 MUST BE THE HOST DO NOT MESS THIS UP
         _gen_link_state_log("h"+str(peer1), "sw"+str(peer2), "Adding new host-switch edge to graph")
         g.add_edge(peer1, peer2, port1=port1, port2=port2)
+        _save_graph_json_data()
 
 def _del_graph_edge(dpid1, dpid2):
     global g
@@ -163,6 +165,12 @@ def _gen_link_state_log(peer1, peer2, msg):
 def _dump_graph_json_data():
     global g
     print(json.dumps(json_graph.node_link_data(g),indent=2))
+
+def _save_graph_json_data():
+    global g
+    f = open("networkx_graph.json",'w')
+    f.write(json.dumps(json_graph.node_link_data(g),indent=2))
+    f.close()
 
 def launch():
     global g
