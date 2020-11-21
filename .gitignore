@@ -2,3 +2,4 @@ mininet
 __pycache__
 .DS_Store
 /openflow/
+pox/networkx_graph.json

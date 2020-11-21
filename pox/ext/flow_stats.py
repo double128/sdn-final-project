@@ -56,7 +56,8 @@ def _timer_func ():
             # TAKE NOTE!
 
             for o in other_hosts:
-                spath = nx.shortest_path(g, source=h[0], target=o[0])
+                #spath = nx.shortest_path(g, source=h[0], target=o[0])
+                spath = nx.dijkstra_path(g, source=h[0], target=o[0])
                 print("#### BEST PATH FOR " + str(h[1]) + " -> " + str(o[1]))
                 print(spath)
 
@@ -157,6 +158,8 @@ def _handle_packetin(event):
     sw_port = event.port
     sw_dpid = dpidToStr(event.dpid)
     
+    print(g.out_edges(host_mac))
+
     # Check if the edge exists already, if it doesn't, create it
     if not g.has_edge(host_mac, sw_dpid):
         # "0" is the host's port; this will always be 0
