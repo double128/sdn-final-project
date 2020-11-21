@@ -26,6 +26,14 @@ def _handle_connectionup(event):
     sw_name = "sw" + str(event.dpid)
     g.add_node(dpidToStr(event.dpid), name=sw_name, node_type="switch")
 
+    # Install a flow rule on the switch that allows for broadcast traffic
+    # Match ethernet traffic with dst ff:ff:ff:ff:ff:ff, flood all ports
+    # Take NOTE: we rely on the spanning tree module to prevent broadcasts out any non-root ports to prevent broadcast storms
+    msg = of.ofp_flow_mod()
+    msg.match.dl_dst = EthAddr("ff:ff:ff:ff:ff:ff") #broadcast
+    msg.actions = [of.ofp_action_output(port=of.OFPP_FLOOD), of.ofp_action_output(port=of.OFPP_CONTROLLER)] #flood out all ports except incoming port and send to controller for topology learning
+    event.connection.send(msg)
+
 # Generates a list of either hosts or switches
 def _generate_nx_list(node_type):
     global g
@@ -185,6 +193,7 @@ def _handle_packetin(event):
     #print(msg)
 
 def _gen_link_state_log(peer1, peer2, msg):
+    _save_graph_json_data()
     log.info(str(peer1) + " -> " + str(peer2) + ": " + msg)
 
 #def _get_link_delay():
@@ -192,6 +201,12 @@ def _gen_link_state_log(peer1, peer2, msg):
 def _dump_graph_json_data():
     global g
     print(json.dumps(json_graph.node_link_data(g),indent=2))
+
+def _save_graph_json_data():
+    global g
+    f = open("networkx_graph.json",'w')
+    f.write(json.dumps(json_graph.node_link_data(g),indent=2))
+    f.close()
 
 def launch():
     global g
