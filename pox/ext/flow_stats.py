@@ -25,6 +25,8 @@ def _handle_connectionup(event):
     # Add a node to the networkx graph and assign it an identifiable name
     sw_name = "sw" + str(event.dpid)
     g.add_node(dpidToStr(event.dpid), name=sw_name, node_type="switch")
+    if g.nodes.get(dpidToStr(event.dpid)):
+        g.nodes[dpidToStr(event.dpid)]['connection'] = event.connection
 
     # Install a flow rule on the switch that allows for broadcast traffic
     # Match ethernet traffic with dst ff:ff:ff:ff:ff:ff, flood all ports
@@ -60,6 +62,7 @@ def _timer_func ():
                 spath = nx.dijkstra_path(g, source=h[0], target=o[0])
                 print("#### BEST PATH FOR " + str(h[1]) + " -> " + str(o[1]))
                 print(spath)
+                _generate_flow_rules(spath)
 
    # for 
     #short_path = g.shortest_path(
@@ -140,6 +143,49 @@ def _drop_packet_handler(packet):
     #print(msg)
     self.connection.send(msg)
 
+def _generate_flow_rules(path):
+    """
+    Inputs:
+    path - a list of nodes representing the path selected between two hosts
+        for example, ['00:00:00:00:00:02', '00-00-00-00-00-01', '00-00-00-00-00-04', '00:00:00:00:00:07']
+
+    Function will dynamically create rules to enable each hop in the given path and install those rules on all switches in path
+
+    Returns: N/A
+    """
+    path = ['00:00:00:00:00:02', '00-00-00-00-00-01', '00-00-00-00-00-04', '00:00:00:00:00:07']
+    
+    #A path should always start with a host and end with a host, with switches in between
+    #Validate that the given path follows this format
+    source_mac = path[0]
+    dest_mac = path[-1]
+    if not g.nodes.get(source_mac) or g.nodes.get(source_mac).get('node_type') != "host":
+        log.error(source_mac+" is not of type host source mac; _generate_flow_rules cannot install flows")
+        return
+    if not g.nodes.get(dest_mac) or g.nodes.get(dest_mac).get('node_type') != "host":
+        log.error(dest_mac+" is not of type host dest mac; _generate_flow_rules cannot install flows")
+        return
+
+    #Remove the source and destination hosts from the path
+    path = path[1:-1]
+    #for each hop in the path...
+    for source, dest in zip(path, path[1:]):
+        edge = g.edges.get((source,dest)) #get the edge between the two switches
+        if edge:
+            output_port = edge.get('port1') if edge.get('target') == dest else edge.get('port2')
+
+            msg = of.ofp_flow_mod()
+            msg.match.dl_src = EthAddr(source_mac)
+            msg.match.dl_dst = EthAddr(dest_mac)
+            msg.hard_timeout = 30
+            msg.idle_timeout = 10
+            msg.actions = [of.ofp_action_output(port=output_port)]
+            if g.nodes.get(source):
+                g.nodes.get(source).get('connection').send(msg)
+            else:
+                log.error("Failed to install flow for "+source_mac+"->"+dest_mac+" on "+source)
+
+
 
 def _handle_packetin(event):
     global g
@@ -203,12 +249,12 @@ def _gen_link_state_log(peer1, peer2, msg):
 
 def _dump_graph_json_data():
     global g
-    print(json.dumps(json_graph.node_link_data(g),indent=2))
+    print(json.dumps(json_graph.node_link_data(g),indent=2,default=lambda o: '<not serializable>'))
 
 def _save_graph_json_data():
     global g
     f = open("networkx_graph.json",'w')
-    f.write(json.dumps(json_graph.node_link_data(g),indent=2))
+    f.write(json.dumps(json_graph.node_link_data(g),indent=2,default=lambda o: '<not serializable>'))
     f.close()
 
 def launch():
