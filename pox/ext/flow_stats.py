@@ -1,5 +1,5 @@
 from pox.core import core
-from pox.lib.util import dpidToStr
+from pox.lib.util import dpidToStr, strToDPID
 import pox.openflow.libopenflow_01 as of
 from pox.openflow.of_json import *
 from pox.lib.recoco import Timer
@@ -17,7 +17,6 @@ log = core.getLogger()
 
 # networkx graph object init
 g = None
-
 # The maximum amount of acceptable delay (in ms) on a link - anything above this will result in the link being less optimal
 DELAY_CAP = 200
 
@@ -25,32 +24,21 @@ def _handle_connectionup(event):
     global g
     # Add a node to the networkx graph and assign it an identifiable name
     sw_name = "sw" + str(event.dpid)
-    g.add_node(event.dpid, name=sw_name)
+    g.add_node(dpidToStr(event.dpid), name=sw_name, node_type="switch")
 
-# Generate a list of *host* node IDs in the NX graph
-def _generate_nx_host_list():
+# Generates a list of either hosts or switches
+def _generate_nx_list(node_type):
     global g
-    host_list = []
+    node_list = []
     for node in g.nodes(data=True):
-        print(node)
-       #if node[1]:
-       #    host_list.append(node[0])
-    return host_list
-
-# Generate a list of *switch* node IDs in the NX graph
-def _generate_nx_switch_list():
-    global g
-    switch_list = []
-    # TODO: Not.... this. This is really fucking redundant. Try to find a way to merge this with the above method because I AM NOT HAVING THIS
-    for node in g.nodes(data="host_mac"):
-        if not node[1]:
-            switch_list.append(node[0])
-
+        if node[1]['node_type'] == node_type:
+            # Append a tuple containing the node's ID and the name attribute
+            node_list.append((node[0], node[1]['name']))
+    return node_list
+                
 def _timer_func ():
     global g
-    hosts = _generate_nx_host_list()
-    print(hosts)
-    '''
+    hosts = _generate_nx_list("host")
     if hosts:
         for h in hosts:
             other_hosts = hosts[:]  # Create a clone of the existing hosts list, but very fastly (according to https://stackoverflow.com/a/26875847)
@@ -58,14 +46,11 @@ def _timer_func ():
             # WE HAVE TO GO DEEPER
             # BIG O TIME IS A PSYOP MEANT TO HOLD BACK PROGRAMMERS
             # TAKE NOTE!
+
             for o in other_hosts:
-                spath = nx.shortest_path(g, source=h, target=o)
-                print("#### BEST PATH FOR " + str(h) + " -> " + str(o))
+                spath = nx.shortest_path(g, source=h[0], target=o[0])
+                print("#### BEST PATH FOR " + str(h[1]) + " -> " + str(o[1]))
                 print(spath)
-
-    '''
-
-    #nx.shortest_path(g, source=
 
    # for 
     #short_path = g.shortest_path(
@@ -76,26 +61,30 @@ def _timer_func ():
 
 def _handle_linkevent(event):
     l = event.link
+    dpid1 = dpidToStr(l.dpid1)
+    dpid2 = dpidToStr(l.dpid2)
+
     if event.added:
-        _add_graph_edge(l.dpid1, l.dpid2, l.port1, l.port2, "switch") 
+        _add_graph_edge(dpid1, dpid2, l.port1, l.port2, "switch") 
+
     elif event.removed:
-        _set_graph_edge_state(l.dpid1, l.dpid2, state=False)
+        #_set_graph_edge_state(dpid1, dpid2, state=False)
+        pass
+        # NOTE: For now, do nothing. We might not need to handle this
 
 def _add_graph_edge(peer1, peer2, port1, port2, link_type):
     global g
     if link_type == "switch":
-        _gen_link_state_log("sw"+str(peer1), "sw"+str(peer2), "Adding new switch-switch edge to graph")
+        _gen_link_state_log(peer1, peer2, "Adding new switch-switch edge to graph")
         # Edges are initialized with zero values for usage and delay, they'll be computed later
         # state=True means the link is up
         # All switch-switch edges are initialized with a weight of 1.0. This weight value is adjusted as bandwidth and delay calculations run
         # NOTE: I'm removing the "state" arg because I don't think we'll need it
-        g.add_edge(peer1, peer2, port1=port1, port2=port2, usage=0, delay=0, weight=1.0)
-        _save_graph_json_data()
+        g.add_edge(peer1, peer2, port1=port1, port2=port2, weight=1.0, link_type="switch")
     elif link_type == "host":
         # PEER1 MUST BE THE HOST DO NOT MESS THIS UP
         _gen_link_state_log(peer1, peer2, "Adding new host-switch edge to graph")
-        g.add_edge(peer1, peer2, port1=port1, port2=port2)
-        _save_graph_json_data()
+        g.add_edge(peer1, peer2, port1=port1, port2=port2, link_type="host")
 
 def _del_graph_edge(dpid1, dpid2):
     global g
@@ -139,44 +128,36 @@ def _drop_packet_handler(packet):
     msg = of.ofp_flow_mod()
     msg.match = of.ofp_match.from_packet(packet)
     msg.buffer_id = event.ofp.buffer_id
-    print(msg)
+    #print(msg)
     self.connection.send(msg)
 
 
 def _handle_packetin(event):
     global g
     packet = event.parsed
-    print("===PACKET===")
-    print(packet)
-    print(packet.src)
-    print("============")
+    
     #if packet.type == packet.LLDP_TYPE or packet.dst.isBridgeFiltered():
     #    _drop_packet_handler(packet)
     
-    host_src_mac = str(packet.src)
-    host_id = host_src_mac[-1]      # This should not be passed into networkx, this is JUST for getting the name of the node (which corresponds to MAC address)
-    host_name = "h" + str(host_id)
-   
-    node_obj = _get_node_obj_by_name(host_name)
-    print(node_obj)
+    host_mac = str(packet.src)
+    host_name = "h" + str(host_mac[-1])
+    
     # If we don't get a result back for this, this means there's no node for this host yet
-    if not node_obj:
-        # Since we need to provide an ID for each node, we can just increment the number of nodes by 1 to get a unique ID
-        host_node_id = g.number_of_nodes() + 1
-        g.add_node(host_node_id, name=host_name, host_mac=host_src_mac)
-    else:
-        host_node_id = node_obj[0][0]
+    if not _get_node_obj_by_name(host_name):
+        g.add_node(host_mac, name=host_name, node_type="host")
 
-    # Now that we either added a new host node or confirmed it already exists... let's check for edges in the graph
-    host_port = 0 # This will ALWAYS be zero; hosts connect to switches via port 0
-    switch_port = event.port # We can grab this info from the event object
-    sw_dpid = event.dpid
+    sw_port = event.port
+    sw_dpid = dpidToStr(event.dpid)
+    
+    # Check if the edge exists already, if it doesn't, create it
+    if not g.has_edge(host_mac, sw_dpid):
+        # "0" is the host's port; this will always be 0
+        # Also, make sure host_mac is the first arg, the _add_graph_edge method needs it like that
+        # TODO: Add handling for that. You honestly don't need to. You REALLY don't need to. But god, you WANT to.
+        _add_graph_edge(host_mac, sw_dpid, 0, sw_port, "host")
+        
+    #_dump_graph_json_data()
 
-    # Add an edge between the host and the switch if it doesn't exist already
-    if not g.has_edge(host_node_id, sw_dpid):
-    #    # NOTE: host_node_id MUST be the first arg here
-        _add_graph_edge(host_node_id, sw_dpid, host_port, switch_port, "host")
-     
     #packet_dst = packet.dst
 
     #of.ofp_packet_out()
@@ -211,12 +192,6 @@ def _gen_link_state_log(peer1, peer2, msg):
 def _dump_graph_json_data():
     global g
     print(json.dumps(json_graph.node_link_data(g),indent=2))
-
-def _save_graph_json_data():
-    global g
-    f = open("networkx_graph.json",'w')
-    f.write(json.dumps(json_graph.node_link_data(g),indent=2))
-    f.close()
 
 def launch():
     global g
