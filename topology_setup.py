@@ -32,13 +32,17 @@ class MininetSDN:
         for i in range(0,count):
             # We need to add +1 to the host variable because arrays start at 0
             n = i+1
-            hosts.append(self.net.addHost(name="h"+str(n), ip=str(self.SUBNET[n]), mac="00:00:00:00:00:0"+str(n)))
+            new_host = self.net.addHost(name="h"+str(n), ip=str(self.SUBNET[n]), mac="00:00:00:00:00:0"+str(n))
+            self.goodbye_ipv6(new_host)
+            hosts.append(new_host)
         return hosts
 
     def setup_switches(self, count):
         switches = []
         for i in range(0,4):
-            switches.append(self.net.addSwitch('s'+str(i+1)))
+            new_switch = self.net.addSwitch('s'+str(i+1))
+            self.goodbye_ipv6(new_switch)
+            switches.append(new_switch)
         return switches
     
     def setup_links(self):
@@ -86,10 +90,17 @@ class MininetSDN:
                 print(str(e))
                 os.exit(1)
     
+    def goodbye_ipv6(self, host):
+        # IPv6 is good until it impedes my ability to finish work
+        host.cmd("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
+        host.cmd("sysctl -w net.ipv6.conf.default.disable_ipv6=1")
+        host.cmd("sysctl -w net.ipv6.conf.lo.disable_ipv6=1")
+        
     def start_network(self):
         self.net.build()
         self.net.start()
-        #self.net.staticArp()
+        # NOTE: If you use this, you make things easier. But we don't want to make things easier. We need to suffer.
+        #self.net.staticArp() 
         CLI(self.net)
         self.net.stop()
     
