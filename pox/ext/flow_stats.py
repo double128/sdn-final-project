@@ -158,7 +158,7 @@ def _handle_packetin(event):
     sw_port = event.port
     sw_dpid = dpidToStr(event.dpid)
     
-    print(g.out_edges(host_mac))
+    #print(g.out_edges(host_mac))
 
     # Check if the edge exists already, if it doesn't, create it
     if not g.has_edge(host_mac, sw_dpid):
