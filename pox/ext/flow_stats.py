@@ -158,14 +158,14 @@ def _handle_packetin(event):
     sw_port = event.port
     sw_dpid = dpidToStr(event.dpid)
     
-    print(g.out_edges(host_mac))
-
-    # Check if the edge exists already, if it doesn't, create it
-    if not g.has_edge(host_mac, sw_dpid):
-        # "0" is the host's port; this will always be 0
-        # Also, make sure host_mac is the first arg, the _add_graph_edge method needs it like that
-        # TODO: Add handling for that. You honestly don't need to. You REALLY don't need to. But god, you WANT to.
-        _add_graph_edge(host_mac, sw_dpid, 0, sw_port, "host")
+    # Host nodes should only have an edge added if they don't have any edges. Hosts can only have 1 edge, which will be the link to their switch
+    if len(g.edges([host_mac])) == 0:
+        # Check if the edge exists already, if it doesn't, create it
+        if not g.has_edge(host_mac, sw_dpid):
+            # "0" is the host's port; this will always be 0
+            # Also, make sure host_mac is the first arg, the _add_graph_edge method needs it like that
+            # TODO: Add handling for that. You honestly don't need to. You REALLY don't need to. But god, you WANT to.
+            _add_graph_edge(host_mac, sw_dpid, 0, sw_port, "host")
         
     #_dump_graph_json_data()
 
