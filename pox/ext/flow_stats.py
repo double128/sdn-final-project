@@ -185,6 +185,7 @@ def _handle_packetin(event):
     #print(msg)
 
 def _gen_link_state_log(peer1, peer2, msg):
+    _save_graph_json_data()
     log.info(str(peer1) + " -> " + str(peer2) + ": " + msg)
 
 #def _get_link_delay():
@@ -192,6 +193,12 @@ def _gen_link_state_log(peer1, peer2, msg):
 def _dump_graph_json_data():
     global g
     print(json.dumps(json_graph.node_link_data(g),indent=2))
+
+def _save_graph_json_data():
+    global g
+    f = open("networkx_graph.json",'w')
+    f.write(json.dumps(json_graph.node_link_data(g),indent=2))
+    f.close()
 
 def launch():
     global g
