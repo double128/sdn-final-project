@@ -153,7 +153,6 @@ def _generate_flow_rules(path):
 
     Returns: N/A
     """
-    path = ['00:00:00:00:00:02', '00-00-00-00-00-01', '00-00-00-00-00-04', '00:00:00:00:00:07']
     
     #A path should always start with a host and end with a host, with switches in between
     #Validate that the given path follows this format
@@ -182,6 +181,7 @@ def _generate_flow_rules(path):
             msg.actions = [of.ofp_action_output(port=output_port)]
             if g.nodes.get(source):
                 g.nodes.get(source).get('connection').send(msg)
+                log.info("Installed flow for"+source_mac+"->"+dest_mac+" on "+source)
             else:
                 log.error("Failed to install flow for "+source_mac+"->"+dest_mac+" on "+source)
 
@@ -212,6 +212,15 @@ def _handle_packetin(event):
             # Also, make sure host_mac is the first arg, the _add_graph_edge method needs it like that
             # TODO: Add handling for that. You honestly don't need to. You REALLY don't need to. But god, you WANT to.
             _add_graph_edge(host_mac, sw_dpid, 0, sw_port, "host")
+
+    try:
+        #if src and dst are in graph
+        if g.nodes.get(str(packet.src)) and g.nodes.get(str(packet.dst)):
+            path = nx.dijkstra_path(g, str(packet.src), str(packet.dst))
+            print("Generated path",path)
+            _generate_flow_rules(path)
+    except nx.exception.NetworkXNoPath:
+        log.error("Could not calculate path between "+str(packet.src)+" and "+str(packet.dst))
         
     #_dump_graph_json_data()
 
@@ -266,7 +275,7 @@ def launch():
         core.openflow.addListenerByName("ConnectionUp", _handle_connectionup)
         core.openflow_discovery.addListenerByName("LinkEvent", _handle_linkevent)
         core.openflow.addListenerByName("PacketIn", _handle_packetin)
-        Timer(5, _timer_func, recurring=True)
+        #Timer(5, _timer_func, recurring=True)
     core.call_when_ready(start, ('openflow', 'openflow_discovery'))
 
 # TODO:
