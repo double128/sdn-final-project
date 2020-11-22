@@ -83,7 +83,7 @@ def _get_switch_peer_ports():
         for edge in edges:
             peer_nx_id = edge[1]
             edge_attrs = g.get_edge_data(sw_nx_id, peer_nx_id) 
-            edge_list.append((edge_attrs['port1'], peer_nx_id)) # A tuple containing the port on the switch where peer_nx_id can be found
+            edge_list.append((edge_attrs['ports'][sw_nx_id], peer_nx_id)) # A tuple containing the port on the switch where peer_nx_id can be found
         peer_list[sw_nx_id] = edge_list
     return peer_list
 
@@ -97,9 +97,7 @@ def _calculate_shortest_paths():
             # WE HAVE TO GO DEEPER
             # BIG O TIME IS A PSYOP MEANT TO HOLD BACK PROGRAMMERS
             # TAKE NOTE!
-
             for o in other_hosts:
-                #spath = nx.shortest_path(g, source=h[0], target=o[0])
                 spath = nx.dijkstra_path(g, source=h[0], target=o[0])
                 print("#### BEST PATH FOR " + str(h[1]) + " -> " + str(o[1]))
                 print(spath)
@@ -111,31 +109,34 @@ def _handle_linkevent(event):
     dpid1 = dpidToStr(l.dpid1)
     dpid2 = dpidToStr(l.dpid2)
     
-    if event.added:
+    # Check if the edge exists first - networkx WILL try to add the edge again if you don't check
+    if not _edge_exists(dpid1, dpid2):
         _add_graph_edge(dpid1, dpid2, l.port1, l.port2, "switch") 
-
-    elif event.removed:
-        #_set_graph_edge_state(dpid1, dpid2, state=False)
-        pass
-        # NOTE: For now, do nothing. We might not need to handle this
 
 def _add_graph_edge(peer1, peer2, port1, port2, link_type):
     global g
+
+    ports = _generate_port_dict(peer1, peer2, port1, port2)
+
     if link_type == "switch":
-        _gen_link_state_log(peer1, peer2, "Adding new switch-switch edge to graph")
         # All switch-switch edges are initialized with a weight of 1.0. This weight value will be adjusted for delay calculations
-        g.add_edge(peer1, peer2, port1=port1, port2=port2, weight=1.0, link_type="switch")
+        g.add_edge(peer1, peer2, ports=ports, weight=1.0, link_type="switch")
+        _gen_link_state_log(peer1, peer2, "Adding new switch-switch edge to graph")
     elif link_type == "host":
-        # PEER1 MUST BE THE HOST DO NOT MESS THIS UP
+        # No weights are needed for host-switch links
+        g.add_edge(peer1, peer2, ports=ports, link_type="host")
         _gen_link_state_log(peer1, peer2, "Adding new host-switch edge to graph")
-        g.add_edge(peer1, peer2, port1=port1, port2=port2, link_type="host")
+
+def _generate_port_dict(peer1, peer2, port1, port2):
+    return {peer1: port1, peer2: port2}
+
 
 def _get_node_by_nx_id(node_id):
     global g
     return [node for node in g.nodes(data=True) if node[0] == node_id]
   
 def _generate_flow_rules(path):
-    """
+    """ 
     Inputs:
     path - a list of nodes representing the path selected between two hosts
         for example, ['00:00:00:00:00:02', '00-00-00-00-00-01', '00-00-00-00-00-04', '00:00:00:00:00:07']
@@ -161,9 +162,15 @@ def _generate_flow_rules(path):
     #for each hop in the path...
     for source, dest in zip(path, path[1:]):
         edge = g.edges.get((source,dest)) #get the edge between the two switches
+        print("SOURCE:", source)
+        print("DEST:", dest)
+        print(edge)
         if edge:
-            output_port = edge.get('port1') if edge.get('target') == dest else edge.get('port2')
-
+            print("Inside edge")
+            output_port = edge.get('ports').get(source)
+            print("Output port:", output_port)
+            #output_port = edge.get('ports')[dest] if edge.get('target') == dest else edge.get('ports')[source]
+            
             msg = of.ofp_flow_mod()
             msg.match.dl_src = EthAddr(source_mac)
             msg.match.dl_dst = EthAddr(dest_mac)
@@ -195,14 +202,13 @@ def _handle_packetin(event):
         # We need this method because of broadcasts - need to filter out packets we've received that appear to be sourced from a host, but come from a switch->switch link.
         if not _is_trunk_port(sw_port, sw_dpid):
             # Check if the edge exists already, if it doesn't, create it
-            if not g.has_edge(host_mac, sw_dpid):
+            #if not g.has_edge(host_mac, sw_dpid):
+            if not _edge_exists(host_mac, sw_dpid):
                 # "0" is the host's port; this will always be 0
                 # Also, make sure host_mac is the first arg, the _add_graph_edge method needs it like that
                 # TODO: Add handling for that. You honestly don't need to. You REALLY don't need to. But god, you WANT to.
                 _add_graph_edge(host_mac, sw_dpid, 0, sw_port, "host")
 
-    # TODO: Re-enable once we know shit's working
-    '''
     try:
         #if src and dst are in graph
         if g.nodes.get(str(packet.src)) and g.nodes.get(str(packet.dst)):
@@ -214,28 +220,28 @@ def _handle_packetin(event):
         
         # Recalculate our shortest paths now that we have a new node
         _calculate_shortest_paths()
-    '''
+
+def _edge_exists(peer1, peer2):
+    return g.has_edge(peer1, peer2)
 
 def _is_trunk_port(port, dpid):
     global g
-    print("######### PORT:", port)
-    print("######### DPID:", dpid)
     edges = g.edges(dpid, data=True)
     for edge in edges:
         # Check if port has a match for "source" and "port1"
-        if dpid == edge[0] and edge[2]['port1'] == port and edge[2]['link_type'] == "switch":
+        if dpid == edge[0] and edge[2]['ports'][dpid] == port and edge[2]['link_type'] == "switch":
             print("WOOOOOOOOOOOOOO THATS A FUCKIN TRUNK PORT BAYBEEEEEEEEE")
             return True
         # Check if port has a match for "target" and "port2"
-        elif dpid == edge[1] and edge[2]['port2'] == port and edge[2]['link_type'] == "switch":
+        elif dpid == edge[1] and edge[2]['ports'][dpid] == port and edge[2]['link_type'] == "switch":
             print("WOOOOOOOOOOOOOO THATS A FUCKIN TRUNK PORT BAYBEEEEEEEEE")
             return True
     # If we don't hit anything, we don't have a trunk port, so return False
     return False
 
 def _gen_link_state_log(peer1, peer2, msg):
-    _save_graph_json_data()
     log.info(str(peer1) + " -> " + str(peer2) + ": " + msg)
+    _save_graph_json_data()
 
 def _dump_graph_json_data():
     global g
