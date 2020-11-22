@@ -172,7 +172,7 @@ def _generate_flow_rules(path):
             msg.actions = [of.ofp_action_output(port=output_port)]
             if g.nodes.get(source):
                 g.nodes.get(source).get('connection').send(msg)
-                log.info("Installed flow for"+source_mac+"->"+dest_mac+" on "+source)
+                log.info("Installed flow for " +source_mac+"->"+dest_mac+" on "+source)
             else:
                 log.error("Failed to install flow for "+source_mac+"->"+dest_mac+" on "+source)
 
@@ -193,34 +193,45 @@ def _handle_packetin(event):
     # Host nodes should only have an edge added if they don't have any edges. Hosts can only have 1 edge, which will be the link to their switch
     if len(g.edges([host_mac])) == 0:
         # We need this method because of broadcasts - need to filter out packets we've received that appear to be sourced from a host, but come from a switch->switch link.
-        #if not _is_trunk_port(sw_port, sw_dpid):
-        _is_trunk_port(sw_port, sw_dpid)
-        
-        # Check if the edge exists already, if it doesn't, create it
-        if not g.has_edge(host_mac, sw_dpid):
-            # "0" is the host's port; this will always be 0
-            # Also, make sure host_mac is the first arg, the _add_graph_edge method needs it like that
-            # TODO: Add handling for that. You honestly don't need to. You REALLY don't need to. But god, you WANT to.
-            _add_graph_edge(host_mac, sw_dpid, 0, sw_port, "host")
+        if not _is_trunk_port(sw_port, sw_dpid):
+            # Check if the edge exists already, if it doesn't, create it
+            if not g.has_edge(host_mac, sw_dpid):
+                # "0" is the host's port; this will always be 0
+                # Also, make sure host_mac is the first arg, the _add_graph_edge method needs it like that
+                # TODO: Add handling for that. You honestly don't need to. You REALLY don't need to. But god, you WANT to.
+                _add_graph_edge(host_mac, sw_dpid, 0, sw_port, "host")
 
+    # TODO: Re-enable once we know shit's working
+    '''
     try:
         #if src and dst are in graph
         if g.nodes.get(str(packet.src)) and g.nodes.get(str(packet.dst)):
             path = nx.dijkstra_path(g, str(packet.src), str(packet.dst))
-            print("Generated path",path)
+            print("Generated path ",path)
             _generate_flow_rules(path)
     except nx.exception.NetworkXNoPath:
         log.error("Could not calculate path between "+str(packet.src)+" and "+str(packet.dst))
         
         # Recalculate our shortest paths now that we have a new node
         _calculate_shortest_paths()
+    '''
 
 def _is_trunk_port(port, dpid):
     global g
-    edges = nx.get_edge_attributes(g, 'link_type')
-    print(edges)
-    #switch_links = [edge for edge in g.get_edge_attributes(g, 'link_type') if node[0] == node_id]
-
+    print("######### PORT:", port)
+    print("######### DPID:", dpid)
+    edges = g.edges(dpid, data=True)
+    for edge in edges:
+        # Check if port has a match for "source" and "port1"
+        if dpid == edge[0] and edge[2]['port1'] == port and edge[2]['link_type'] == "switch":
+            print("WOOOOOOOOOOOOOO THATS A FUCKIN TRUNK PORT BAYBEEEEEEEEE")
+            return True
+        # Check if port has a match for "target" and "port2"
+        elif dpid == edge[1] and edge[2]['port2'] == port and edge[2]['link_type'] == "switch":
+            print("WOOOOOOOOOOOOOO THATS A FUCKIN TRUNK PORT BAYBEEEEEEEEE")
+            return True
+    # If we don't hit anything, we don't have a trunk port, so return False
+    return False
 
 def _gen_link_state_log(peer1, peer2, msg):
     _save_graph_json_data()
@@ -228,7 +239,8 @@ def _gen_link_state_log(peer1, peer2, msg):
 
 def _dump_graph_json_data():
     global g
-    print(json.dumps(json_graph.node_link_data(g),indent=2,default=lambda o: '<not serializable>'))
+    #return json.dumps(json_graph.node_link_data(g),indent=2,default=lambda o: '<not serializable>')
+    return json_graph.node_link_data(g)
 
 def _save_graph_json_data():
     global g
