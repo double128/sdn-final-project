@@ -3,6 +3,7 @@ from mininet.node import Controller, OVSKernelSwitch, RemoteController
 from mininet.cli import CLI
 from mininet.link import TCLink
 from mininet.log import setLogLevel, info, debug
+import random
 import ipaddress
 import yaml 
 import os
@@ -13,12 +14,15 @@ import os
 class MininetSDN:
     SUBNET = ipaddress.ip_network(unicode('10.42.0.0/24'))
     POX_PORT = 6633
+    LINK_COUNT = 6  # I'm hard coding this because I have brain damage
+    net = None
 
     def __init__(self):
         self.net = self.setup_network()
         self.hosts = self.setup_hosts(8)
         self.switches = self.setup_switches(4)
         self.setup_links()
+        #self.SPIN_THAT_WHEEL()
 
         self.start_network()
 
@@ -55,9 +59,10 @@ class MininetSDN:
                 os.exit(1)
             finally:
                 fp.close()
-        
+ 
         for src in links:
             src_obj = self.get_network_obj(src, "switch")
+
             connections = links[src]
             for dst in connections:
                 src_port = int(connections[dst])
@@ -79,7 +84,11 @@ class MininetSDN:
 
     def add_link(self, conn1, port1, conn2, port2):
         try:
-            # Set bw=100 to limit the max throughput to 100Mbps
+            #delay = str(random.randint(10,250)) + "ms"
+            # NOTE: TEMP
+            #delay = str(random.randint(200,250)) + "ms"
+
+            #self.net.addLink(conn1, conn2, port1=port1, port2=port2, bw=100, delay=delay)
             self.net.addLink(conn1, conn2, port1=port1, port2=port2, bw=100)
         except Exception as e: # Mininet only throws "Exception" type exceptions. We can narrow this down, however.
             if "File exists" in str(e):
@@ -95,12 +104,22 @@ class MininetSDN:
         host.cmd("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
         host.cmd("sysctl -w net.ipv6.conf.default.disable_ipv6=1")
         host.cmd("sysctl -w net.ipv6.conf.lo.disable_ipv6=1")
+
+    def SPIN_THAT_WHEEL(self):
+        # Randomly give a link a lot of delay
+        print("\n\n")
+        # Pick 2 random switches
+        sw1, sw2 = random.sample(self.switches, 2)
+        linky = [link for link in self.net.links if (sw1, sw2) in ((link.intf1.node, link.intf2.node), (link.intf2.node, link.intf1.node))][0]
+        print("UH OH! Looks like link " + str(linky) + " was naughty and was given a punishment of 500 ms of delay!")
+        self.net.delLink(linky)
+        #import code; code.interact(local=dict(globals(), **locals()))
+        #linky.intf1.config(latency_ms="500")
+        #linky.intf2.config(latency_ms="500")
         
     def start_network(self):
         self.net.build()
         self.net.start()
-        # NOTE: If you use this, you make things easier. But we don't want to make things easier. We need to suffer.
-        #self.net.staticArp() 
         CLI(self.net)
         self.net.stop()
     

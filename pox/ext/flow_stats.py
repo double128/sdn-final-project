@@ -5,6 +5,7 @@ from pox.openflow.of_json import *
 from pox.lib.recoco import Timer
 from pox.lib.packet.packet_base import packet_base
 from pox.lib.packet.packet_utils import *
+import pox.lib.packet as pkt
 import json
 import time
 import struct
@@ -13,18 +14,20 @@ from networkx.readwrite import json_graph
 
 log = core.getLogger()
 
-g = None        # networkx graph object goes here
-DELAY_CAP = 200 # The maximum acceptable delay on a switch-switch link (in ms)
+g = None            # networkx graph object goes here
+DELAY_CAP = 200     # The maximum acceptable delay on a switch-switch link (in ms)
+ETHERTYPE = 0x809B  # This is AppleTalk. Nothing uses AppleTalk anymore. If you own something that does, please consult a physician
+MODULE_START = 0    # When the module first started running
 
 # Referenced from here:
 # https://upcommons.upc.edu/bitstream/handle/2117/79127/109527.pdf
 class LittlePacket(packet_base):
     def __init__(self):
         packet_base.__init__(self)
-        self.timestamp=0
+        self.timestamp = 0
 
-        def hdr(self, payload):
-            return struct.pack('!I', self.timestamp)
+    def hdr(self, payload):
+        return struct.pack('!I', int(self.timestamp))
 
 def _handle_connectionup(event):
     global g
@@ -53,8 +56,24 @@ def _generate_nx_list(node_type):
     return node_list
 
 def _timer_func ():
+    global MODULE_START
     peer_list = _get_switch_peer_ports()
-    #for switch in peer_list:
+    probe = LittlePacket()
+    probe.timestamp = int(time.time()*1000 - MODULE_START)
+    e = pkt.ethernet()
+    
+    e.type = ETHERTYPE  
+    e.payload = probe
+
+    # NOTE: TEMP HARD-CODING, SW1-SW2 link
+    msg = of.ofp_packet_out()
+    msg.data = e.pack()
+    msg.actions.append(of.ofp_action_output(port=1))
+    g.nodes.get("00-00-00-00-00-01").get('connection').send(msg)
+    print("Sent packet")
+    
+    #for peer in peer_list:
+
  
 def _calculate_delay():
     pass
@@ -90,8 +109,8 @@ def _add_graph_edge(peer1, peer2, port1, port2, link_type):
 
     ports = _generate_port_dict(peer1, peer2, port1, port2)
     if link_type == "switch":
-        # All switch-switch edges are initialized with a weight of 1.0. This weight value will be adjusted for delay calculations
-        g.add_edge(peer1, peer2, ports=ports, weight=1.0, link_type="switch")
+        # All switch-switch edges are initialized with a weight of 0. This weight value will be adjusted for delay calculations
+        g.add_edge(peer1, peer2, ports=ports, weight=0, link_type="switch")
         _gen_link_state_log(peer1, peer2, "Adding new switch-switch edge to graph")
     elif link_type == "host":
         # No weights are needed for host-switch links
@@ -144,7 +163,7 @@ def _generate_flow_rules(path, packet_event, sw_dpid):
             msg.in_port = packet_event.port
             msg.actions.append(of.ofp_action_output(port=output_port))
             g.nodes.get(sw_dpid).get('connection').send(msg)
-            log.info("Packet is for you " + str(sw_dpid) + " ! 😏👈👈")
+            log.debug("Packet is for you " + str(sw_dpid) + "! 😏👈👈")
             
             # Install a flow that helps the dumb dumb switch know where to send similar packets 
             msg = of.ofp_flow_mod()
@@ -162,34 +181,70 @@ def _generate_flow_rules(path, packet_event, sw_dpid):
 def _handle_packetin(event):
     global g
     packet = event.parsed
-    host_mac = str(packet.src)
-    host_name = "h" + str(host_mac[-1])
-    
-    # If we don't get a result back for this, this means there's no node for this host yet
-    if not _get_node_by_nx_id(host_mac):
-        g.add_node(host_mac, name=host_name, node_type="host")
-
     sw_port = event.port
     sw_dpid = dpidToStr(event.dpid)
     
-    # Host nodes should only have an edge added if they don't have any edges. Hosts can only have 1 edge, which will be the link to their switch
-    if len(g.edges([host_mac])) == 0:
-        # We need this method because of broadcasts - need to filter out packets we've received that appear to be sourced from a host, but come from a switch->switch link.
-        if not _is_trunk_port(sw_port, sw_dpid):
-            # Check if the edge exists already, if it doesn't, create it
-            #if not g.has_edge(host_mac, sw_dpid):
-            if not _edge_exists(host_mac, sw_dpid):
-                # "0" is the host's port; this will always be 0
-                _add_graph_edge(host_mac, sw_dpid, 0, sw_port, "host")
-    try:
-        #if src and dst are in graph
-        if g.nodes.get(str(packet.src)) and g.nodes.get(str(packet.dst)):
-            path = nx.dijkstra_path(g, str(packet.src), str(packet.dst))
-            log.debug("Generated path", path)
-            _generate_flow_rules(path, event, sw_dpid)
-    except nx.exception.NetworkXNoPath:
-        log.error("Could not calculate path between "+str(packet.src)+" and "+str(packet.dst))
-     
+    # If we received a delay probe packet
+    if packet.type == ETHERTYPE:
+        recv_time = time.time() * 1000 - MODULE_START
+        print("Received delay calc packet")
+        print("PACKET SRC:", packet.src)
+        print("EVENT DPID:", event.dpid)
+        print("EVENT PORT:", event.port)
+        c = packet.find('ethernet').payload
+        d, = struct.unpack('!I', c)
+        delay = recv_time - d
+        print("DELAY:", delay, "ms")
+
+        weight = delay/DELAY_CAP
+        print("WEIGHT:", weight)
+
+        if weight >= 1.0:
+            try:
+                bad_edge = [edge for edge in g.edges(data=True) if sw_dpid in edge[2]['ports'] and edge[2]['ports'][sw_dpid] == sw_port][0]
+                src = bad_edge[0]
+                dst = bad_edge[1]
+                g[src][dst]['weight'] = weight
+                print(g.get_edge_data(src, dst))
+                log.info("Adjusted weight of link " + str(src) + " -> " + str(dst) + " to " + str(weight))
+            except IndexError: # Gets thrown if delay is high and the link hasn't been created yet in NX
+                pass
+            #g[bad_edge[0][0]][bad_edge[0][1]]['weight'] = weight
+            #for edge in g.edges(data=True):
+            #    port = edge[2]['ports']
+                #e = edge[2] # This actually contains the ports
+                # TODO: HOLY SHIT THIS IS FUCKING STUPID FIX THIS 
+                #if sw_dpid in e:
+                #    if e[sw_dpid] == sw_port:
+                #        print("######## FOUND EDGE #######")
+                        
+
+
+    else:
+        host_mac = str(packet.src)
+        host_name = "h" + str(host_mac[-1])
+    
+        # If we don't get a result back for this, this means there's no node for this host yet
+        if not _get_node_by_nx_id(host_mac):
+            g.add_node(host_mac, name=host_name, node_type="host")
+    
+        # Host nodes should only have an edge added if they don't have any edges. Hosts can only have 1 edge, which will be the link to their switch
+        if len(g.edges([host_mac])) == 0:
+            # We need this method because of broadcasts - need to filter out packets we've received that appear to be sourced from a host, but come from a switch->switch link.
+            if not _is_trunk_port(sw_port, sw_dpid):
+                # Check if the edge exists already, if it doesn't, create it
+                #if not g.has_edge(host_mac, sw_dpid):
+                if not _edge_exists(host_mac, sw_dpid):
+                    # "0" is the host's port; this will always be 0
+                    _add_graph_edge(host_mac, sw_dpid, 0, sw_port, "host")
+        try:
+            #if src and dst are in graph
+            if g.nodes.get(str(packet.src)) and g.nodes.get(str(packet.dst)):
+                path = nx.dijkstra_path(g, str(packet.src), str(packet.dst), weight='weight')
+                log.info("Generated path: " + str(path))
+                _generate_flow_rules(path, event, sw_dpid)
+        except nx.exception.NetworkXNoPath:
+            log.error("Could not calculate path between "+str(packet.src)+" and "+str(packet.dst))
 
 def _edge_exists(peer1, peer2):
     return g.has_edge(peer1, peer2)
@@ -224,7 +279,8 @@ def _save_graph_json_data():
     f.close()
 
 def launch():
-    global g
+    global g, MODULE_START
+    MODULE_START = time.time() * 1000
     g = nx.Graph()
     
     def start():
@@ -238,3 +294,4 @@ def launch():
     
 # TODO:
 # Find a way to do delay calculations between switch-switch links
+# Error handling for situations where the mininet instance isn't active (maybe?)
