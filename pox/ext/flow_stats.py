@@ -29,6 +29,11 @@ class LittlePacket(packet_base):
     def hdr(self, payload):
         return struct.pack('!I', int(self.timestamp))
 
+
+##############################################
+#             EVENT HANDLERS                 #
+##############################################
+
 def _handle_connectionup(event):
     global g
     # Add a node to the networkx graph and assign it an identifiable name
@@ -45,138 +50,21 @@ def _handle_connectionup(event):
     msg.actions = [of.ofp_action_output(port=of.OFPP_FLOOD), of.ofp_action_output(port=of.OFPP_CONTROLLER)] #flood out all ports except incoming port and send to controller for topology learning
     event.connection.send(msg)
 
-# Generates a list of either hosts or switches
-def _generate_nx_list(node_type):
-    global g
-    node_list = []
-    for node in g.nodes(data=True):
-        if node[1]['node_type'] == node_type:
-            # Append a tuple containing the node's ID and the name attribute
-            node_list.append((node[0], node[1]['name']))
-    return node_list
-
-def _timer_func ():
-    global MODULE_START
-    peer_list = _get_switch_peer_ports()
-    probe = LittlePacket()
-    probe.timestamp = int(time.time()*1000 - MODULE_START)
-    e = pkt.ethernet()
-    
-    e.type = ETHERTYPE  
-    e.payload = probe
-
-    # NOTE: TEMP HARD-CODING, SW1-SW2 link
-    msg = of.ofp_packet_out()
-    msg.data = e.pack()
-    msg.actions.append(of.ofp_action_output(port=1))
-    g.nodes.get("00-00-00-00-00-01").get('connection').send(msg)
-    print("Sent packet")
-    
-    #for peer in peer_list:
-
- 
-def _calculate_delay():
-    pass
-
-def _get_switch_peer_ports():
-    global g
-    
-    switches = _generate_nx_list("switch")
-    peer_list = {}
-    for switch in switches:
-        sw_nx_id = switch[0]
-        edges = g.edges([sw_nx_id])   # Edging da switches
-        edge_list = []
-        for edge in edges:
-            peer_nx_id = edge[1]
-            edge_attrs = g.get_edge_data(sw_nx_id, peer_nx_id) 
-            edge_list.append((edge_attrs['ports'][sw_nx_id], peer_nx_id)) # A tuple containing the port on the switch where peer_nx_id can be found
-        peer_list[sw_nx_id] = edge_list
-    return peer_list
-
 # When da switches do da linky
 def _handle_linkevent(event):
     l = event.link
     dpid1 = dpidToStr(l.dpid1)
     dpid2 = dpidToStr(l.dpid2)
     
-    # Check if the edge exists first - networkx WILL try to add the edge again if you don't check
-    if not _edge_exists(dpid1, dpid2):
-        _add_graph_edge(dpid1, dpid2, l.port1, l.port2, "switch") 
+    _add_graph_edge(dpid1, dpid2, l.port1, l.port2, "switch") 
 
-def _add_graph_edge(peer1, peer2, port1, port2, link_type):
-    global g
+    #if _edge_exists(dpid1, dpid2):
+    #    print("No edge for peer1->peer2 exists, adding")
+    #    _add_graph_edge(dpid1, dpid2, l.port1, l.port2, "switch") 
+    #elif _edge_exists(dpid2, dpid1):
+    #    print("No edge for peer2->peer1 exists, adding")
+    #    _add_graph_edge(dpid2, dpid1, l.port2, l.port1, "switch") 
 
-    ports = _generate_port_dict(peer1, peer2, port1, port2)
-    if link_type == "switch":
-        # All switch-switch edges are initialized with a weight of 0. This weight value will be adjusted for delay calculations
-        g.add_edge(peer1, peer2, ports=ports, weight=0, link_type="switch")
-        _gen_link_state_log(peer1, peer2, "Adding new switch-switch edge to graph")
-    elif link_type == "host":
-        # No weights are needed for host-switch links
-        g.add_edge(peer1, peer2, ports=ports, link_type="host")
-        _gen_link_state_log(peer1, peer2, "Adding new host-switch edge to graph")
-
-# We need this because setting the port1/port2 attrs is super unreliable in networkx
-# Creating a custom attr named "ports" for each edge allows us to guarantee that the port number will be properly associated with the NX ID of the node
-def _generate_port_dict(peer1, peer2, port1, port2):
-    return {peer1: port1, peer2: port2}
-
-def _get_node_by_nx_id(node_id):
-    global g
-    return [node for node in g.nodes(data=True) if node[0] == node_id]
-  
-def _generate_flow_rules(path, packet_event, sw_dpid):
-    """ 
-    Inputs:
-    path - a list of nodes representing the path selected between two hosts
-        for example, ['00:00:00:00:00:02', '00-00-00-00-00-01', '00-00-00-00-00-04', '00:00:00:00:00:07']
-
-    Function will dynamically create rules to enable each hop in the given path and install those rules on all switches in path
-
-    Returns: N/A
-    """
-    log.info("A packet from " + str(sw_dpid) + "! Is for me? 🥺 👉👈")
-    #A path should always start with a host and end with a host, with switches in between
-    #Validate that the given path follows this format
-    source_mac = path[0]
-    dest_mac = path[-1]
-    
-    if not g.nodes.get(source_mac) or g.nodes.get(source_mac).get('node_type') != "host":
-        log.error(source_mac+" is not of type host source mac; _generate_flow_rules cannot install flows")
-        return
-    if not g.nodes.get(dest_mac) or g.nodes.get(dest_mac).get('node_type') != "host":
-        log.error(dest_mac+" is not of type host dest mac; _generate_flow_rules cannot install flows")
-        return
-
-    #Remove the source and destination hosts from the path
-    path = path[1:]
-    #for each hop in the path...
-    for source, dest in zip(path, path[1:]):
-        edge = g.edges.get((source,dest)) #get the edge between the two switches
-        if edge:
-            output_port = edge.get('ports').get(source)
-            
-            # Generate a packet_out to tell the switch where to send the packet
-            msg = of.ofp_packet_out()
-            msg.data = packet_event.data
-            msg.in_port = packet_event.port
-            msg.actions.append(of.ofp_action_output(port=output_port))
-            g.nodes.get(sw_dpid).get('connection').send(msg)
-            log.debug("Packet is for you " + str(sw_dpid) + "! 😏👈👈")
-            
-            # Install a flow that helps the dumb dumb switch know where to send similar packets 
-            msg = of.ofp_flow_mod()
-            msg.match.dl_src = EthAddr(source_mac)
-            msg.match.dl_dst = EthAddr(dest_mac)
-            msg.hard_timeout = 30
-            msg.idle_timeout = 10
-            msg.actions = [of.ofp_action_output(port=output_port)]
-            if g.nodes.get(source):
-                g.nodes.get(source).get('connection').send(msg)
-                log.info("Installed flow for " +source_mac+"->"+dest_mac+" on "+source)
-            else:
-                log.error("Failed to install flow for "+source_mac+"->"+dest_mac+" on "+source)
 
 def _handle_packetin(event):
     global g
@@ -218,12 +106,10 @@ def _handle_packetin(event):
                 #    if e[sw_dpid] == sw_port:
                 #        print("######## FOUND EDGE #######")
                         
-
-
     else:
         host_mac = str(packet.src)
         host_name = "h" + str(host_mac[-1])
-    
+        
         # If we don't get a result back for this, this means there's no node for this host yet
         if not _get_node_by_nx_id(host_mac):
             g.add_node(host_mac, name=host_name, node_type="host")
@@ -236,16 +122,155 @@ def _handle_packetin(event):
                 #if not g.has_edge(host_mac, sw_dpid):
                 if not _edge_exists(host_mac, sw_dpid):
                     # "0" is the host's port; this will always be 0
+                    # We also create a second "inverse" link since this is a directed graph and we need to know how to traverse the graph from switch->host
                     _add_graph_edge(host_mac, sw_dpid, 0, sw_port, "host")
+                    _add_graph_edge(sw_dpid, host_mac, sw_port, 0, "host")
         try:
             #if src and dst are in graph
             if g.nodes.get(str(packet.src)) and g.nodes.get(str(packet.dst)):
-                path = nx.dijkstra_path(g, str(packet.src), str(packet.dst), weight='weight')
+                #path = nx.dijkstra_path(g, str(packet.src), str(packet.dst), weight='weight')
+                path = nx.shortest_path(g, source=str(packet.src), target=str(packet.dst), weight='weight')
                 log.info("Generated path: " + str(path))
                 _generate_flow_rules(path, event, sw_dpid)
-        except nx.exception.NetworkXNoPath:
-            log.error("Could not calculate path between "+str(packet.src)+" and "+str(packet.dst))
+        except nx.exception.NetworkXNoPath as e:
+            log.error("Could not calculate path between "+str(packet.src)+" and "+str(packet.dst)+": "+str(e))
 
+
+##############################################
+#                FLOW RULES                  #
+##############################################
+
+def _generate_flow_rules(path, packet_event, sw_dpid):
+    """ 
+    Inputs:
+    path - a list of nodes representing the path selected between two hosts
+        for example, ['00:00:00:00:00:02', '00-00-00-00-00-01', '00-00-00-00-00-04', '00:00:00:00:00:07']
+
+    Function will dynamically create rules to enable each hop in the given path and install those rules on all switches in path
+
+    Returns: N/A
+    """
+    log.info("A packet from " + str(sw_dpid) + "! Is for me? 🥺 👉👈")
+    #A path should always start with a host and end with a host, with switches in between
+    #Validate that the given path follows this format
+    source_mac = path[0]
+    dest_mac = path[-1]
+    
+    if not g.nodes.get(source_mac) or g.nodes.get(source_mac).get('node_type') != "host":
+        log.error(source_mac+" is not of type host source mac; _generate_flow_rules cannot install flows")
+        return
+    if not g.nodes.get(dest_mac) or g.nodes.get(dest_mac).get('node_type') != "host":
+        log.error(dest_mac+" is not of type host dest mac; _generate_flow_rules cannot install flows")
+        return
+
+    #Remove the source and destination hosts from the path
+    path = path[1:]
+    #for each hop in the path...
+    for source, dest in zip(path, path[1:]):
+        edge = g.edges.get((source,dest,0)) #get the edge between the two switches
+        if edge:
+            output_port = edge.get('ports').get(source)
+            
+            # Generate a packet_out to tell the switch where to send the packet
+            msg = of.ofp_packet_out()
+            msg.data = packet_event.data
+            msg.in_port = packet_event.port
+            msg.actions.append(of.ofp_action_output(port=output_port))
+            g.nodes.get(sw_dpid).get('connection').send(msg)
+            log.debug("Packet is for you " + str(sw_dpid) + "! 😏👈👈")
+            
+            # Install a flow that helps the dumb dumb switch know where to send similar packets 
+            msg = of.ofp_flow_mod()
+            msg.match.dl_src = EthAddr(source_mac)
+            msg.match.dl_dst = EthAddr(dest_mac)
+            msg.hard_timeout = 30
+            msg.idle_timeout = 10
+            msg.actions = [of.ofp_action_output(port=output_port)]
+            if g.nodes.get(source):
+                g.nodes.get(source).get('connection').send(msg)
+                log.info("Installed flow for " +source_mac+"->"+dest_mac+" on "+source)
+            else:
+                log.error("Failed to install flow for "+source_mac+"->"+dest_mac+" on "+source)
+
+
+##############################################
+#                   TIMER                    #
+##############################################
+
+def _timer_func ():
+    global MODULE_START
+    peer_list = _get_switch_peer_ports()
+    probe = LittlePacket()
+    probe.timestamp = int(time.time()*1000 - MODULE_START)
+    e = pkt.ethernet()
+    
+    e.type = ETHERTYPE  
+    e.payload = probe
+
+    # NOTE: TEMP HARD-CODING, SW1-SW2 link
+    msg = of.ofp_packet_out()
+    msg.data = e.pack()
+    msg.actions.append(of.ofp_action_output(port=1))
+    g.nodes.get("00-00-00-00-00-01").get('connection').send(msg)
+    print("Sent packet")
+
+    edges = g.edges(data=True)
+    for e in edges:
+        print(e)
+    
+
+##############################################
+#              HELPER METHODS                #
+##############################################
+
+def _add_graph_edge(peer1, peer2, port1, port2, link_type):
+    global g
+
+    ports = _generate_port_dict(peer1, peer2, port1, port2)
+    if link_type == "switch":
+        # All switch-switch edges are initialized with a weight of 0. This weight value will be adjusted for delay calculations
+        g.add_edge(peer1, peer2, ports=ports, weight=0, link_type="switch")
+        _gen_link_state_log(peer1, peer2, "Adding new switch-switch edge to graph")
+    elif link_type == "host":
+        # No weights are needed for host-switch links
+        g.add_edge(peer1, peer2, ports=ports, link_type="host")
+        _gen_link_state_log(peer1, peer2, "Adding new host-switch edge to graph")
+
+# Generates a list of either hosts or switches
+def _generate_nx_list(node_type):
+    global g
+    node_list = []
+    for node in g.nodes(data=True):
+        if node[1]['node_type'] == node_type:
+            # Append a tuple containing the node's ID and the name attribute
+            node_list.append((node[0], node[1]['name']))
+    return node_list
+
+def _get_switch_peer_ports():
+    global g
+    
+    switches = _generate_nx_list("switch")
+    peer_list = {}
+    for switch in switches:
+        sw_nx_id = switch[0]
+        edges = g.edges([sw_nx_id])   # Edging da switches
+        edge_list = []
+        for edge in edges:
+            peer_nx_id = edge[1]
+            edge_attrs = g.get_edge_data(sw_nx_id, peer_nx_id) 
+            edge_list.append((edge_attrs['ports'][sw_nx_id], peer_nx_id)) # A tuple containing the port on the switch where peer_nx_id can be found
+        peer_list[sw_nx_id] = edge_list
+    return peer_list
+
+# We need this because setting the port1/port2 attrs is super unreliable in networkx
+# Creating a custom attr named "ports" for each edge allows us to guarantee that the port number will be properly associated with the NX ID of the node
+def _generate_port_dict(peer1, peer2, port1, port2):
+    return {peer1: port1, peer2: port2}
+
+def _get_node_by_nx_id(node_id):
+    global g
+    return [node for node in g.nodes(data=True) if node[0] == node_id]
+  
 def _edge_exists(peer1, peer2):
     return g.has_edge(peer1, peer2)
 
@@ -278,19 +303,25 @@ def _save_graph_json_data():
     f.write(json.dumps(json_graph.node_link_data(g),indent=2,default=lambda o: '<not serializable>'))
     f.close()
 
+##############################################
+#                  LAUNCH                    #
+##############################################
+
 def launch():
     global g, MODULE_START
     MODULE_START = time.time() * 1000
-    g = nx.Graph()
+    g = nx.MultiDiGraph()
     
     def start():
         core.openflow.addListenerByName("ConnectionUp", _handle_connectionup)
         core.openflow_discovery.addListenerByName("LinkEvent", _handle_linkevent)
         core.openflow.addListenerByName("PacketIn", _handle_packetin)
+        #core.register("nxgraph", g)
     core.call_when_ready(start, ('openflow', 'openflow_discovery'))
     # Timer kicks off only once everything else has started - neat!
     # By then, all the switches should be active and have all their edges set in the NX graph object
-    Timer(5, _timer_func, recurring=True) 
+
+    #Timer(5, _timer_func, recurring=True) TODO: TEMP
     
 # TODO:
 # Find a way to do delay calculations between switch-switch links
