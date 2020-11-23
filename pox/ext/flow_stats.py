@@ -231,6 +231,7 @@ def launch():
         core.openflow.addListenerByName("ConnectionUp", _handle_connectionup)
         core.openflow_discovery.addListenerByName("LinkEvent", _handle_linkevent)
         core.openflow.addListenerByName("PacketIn", _handle_packetin)
+        core.register("nxgraph", g)
     core.call_when_ready(start, ('openflow', 'openflow_discovery'))
     # Timer kicks off only once everything else has started - neat!
     # By then, all the switches should be active and have all their edges set in the NX graph object
