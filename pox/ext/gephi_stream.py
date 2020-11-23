@@ -2,7 +2,6 @@ from pox.core import core
 from pox.lib.util import dpid_to_str
 from pox.lib.ioworker.workers import *
 from pox.lib.ioworker import *
-from pox.misc.gephi_topo import GephiHTTPWorker, clients
 from pox.lib.recoco import Timer
 
 import json
@@ -91,21 +90,17 @@ class GephiHTTPWorker (RecocoIOWorker):
         self.send_json([m])
 
 def an (n, **kw):
-    kw['label'] = str(n)
+    kw['label'] = str(kw['label']) if kw.get('label') else str(n)
     return {'an':{str(n):kw}}
 
 def ae (a, b, weight=1.0):
     a = str(a)
     b = str(b)
-    if a > b:
-        a,b=b,a
     return {'ae':{a+"_"+b:{'source':a,'target':b,'directed':True,'weight':weight}}}
 
 def de (a, b):
     a = str(a)
     b = str(b)
-    if a > b:
-        a,b=b,a
     return {'de':{a+"_"+b:{}}}
 
 def dn (n):
@@ -114,8 +109,6 @@ def dn (n):
 def ce (a, b, weight=1.0):
     a = str(a)
     b = str(b)
-    if a > b:
-        a,b=b,a
     return {'ce':{a+"_"+b:{"weight":weight}}}
 
 def clear ():
@@ -142,8 +135,8 @@ class GephiStream(object):
         return out
 
     def run(self):
-        for node in core.nxgraph.nodes:
-            self.send(an(node))
+        for node in core.nxgraph.nodes(data=True):
+            self.send(an(node[0], label=node[1].get('name')))
         for edge in core.nxgraph.edges(data=True):
             log.info(edge)
             self.send(ae(edge[0],edge[1],edge[2].get('weight',1.0)))
