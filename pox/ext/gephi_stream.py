@@ -94,6 +94,7 @@ def an (n, **kw):
     return {'an':{str(n):kw}}
 
 def ae (a, b, weight=1.0):
+    weight = 1.0 if weight < 1.0 else weight
     a = str(a)
     b = str(b)
     return {'ae':{a+"_"+b:{'source':a,'target':b,'directed':True,'weight':weight}}}
@@ -107,6 +108,7 @@ def dn (n):
     return {'dn':{str(n):{}}}
 
 def ce (a, b, weight=1.0):
+    weight = 1.0 if weight < 1.0 else weight
     a = str(a)
     b = str(b)
     return {'ce':{a+"_"+b:{"weight":weight}}}
@@ -138,7 +140,7 @@ class GephiStream(object):
         for node in core.nxgraph.nodes(data=True):
             self.send(an(node[0], label=node[1].get('name')))
         for edge in core.nxgraph.edges(data=True):
-            log.info(edge)
+            log.debug(edge)
             self.send(ae(edge[0],edge[1],edge[2].get('weight',1.0)))
             self.send(ce(edge[0],edge[1],edge[2].get('weight',1.0)))
 

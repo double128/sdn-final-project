@@ -15,7 +15,7 @@ from networkx.readwrite import json_graph
 log = core.getLogger()
 
 g = None            # networkx graph object goes here
-DELAY_CAP = 200     # The maximum acceptable delay on a switch-switch link (in ms)
+DELAY_CAP = 50     # The maximum acceptable delay on a switch-switch link (in ms)
 ETHERTYPE = 0x809B  # This is AppleTalk. Nothing uses AppleTalk anymore. If you own something that does, please consult a physician
 MODULE_START = 0    # When the module first started running
 
@@ -79,7 +79,7 @@ def _handle_packetin(event):
 
         if weight >= 1.0:
             try:
-                bad_edge = [edge for edge in g.edges(data=True) if sw_dpid in edge[2]['ports'] and edge[2]['ports'][sw_dpid] == sw_port][0]
+                bad_edge = [edge for edge in g.in_edges(sw_dpid,data=True) if sw_dpid in edge[2]['ports'] and edge[2]['ports'][sw_dpid] == sw_port][0]
                 src = bad_edge[0]
                 dst = bad_edge[1]
                 g[src][dst][0]['weight'] = weight
@@ -87,6 +87,14 @@ def _handle_packetin(event):
                 log.info("Adjusted weight of link " + str(src) + " -> " + str(dst) + " to " + str(weight) + ", link exceeded maximum acceptable delay")
             except IndexError: # Gets thrown if delay is high and the link hasn't been created yet in NX
                 pass
+        else:
+            bad_edge = [edge for edge in g.in_edges(sw_dpid,data=True) if sw_dpid in edge[2]['ports'] and edge[2]['ports'][sw_dpid] == sw_port][0]
+            src = bad_edge[0]
+            dst = bad_edge[1]
+            if g[src][dst][0]['weight'] > 0:
+                g[src][dst][0]['weight'] = 0
+                log.info("Adjusted weight of link " + str(src) + " -> " + str(dst) + "back to normal")
+
 
     # If we receive any other packet that isn't a delay probe
     else:
