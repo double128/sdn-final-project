@@ -15,6 +15,7 @@ from networkx.readwrite import json_graph
 log = core.getLogger()
 
 g = None            # networkx graph object goes here
+cmf = None          # stands for check ma flow -- for logging flows between each pair of hosts
 DELAY_CAP = 50     # The maximum acceptable delay on a switch-switch link (in ms)
 ETHERTYPE = 0x809B  # This is AppleTalk. Nothing uses AppleTalk anymore. If you own something that does, please consult a physician
 MODULE_START = 0    # When the module first started running
@@ -62,7 +63,7 @@ def _handle_linkevent(event):
         _del_graph_edge(dpid1, dpid2)
     
 def _handle_packetin(event):
-    global g
+    global g, cmf
     packet = event.parsed
     sw_port = event.port
     sw_dpid = dpidToStr(event.dpid)
@@ -93,7 +94,7 @@ def _handle_packetin(event):
             dst = bad_edge[1]
             if g[src][dst][0]['weight'] > 0:
                 g[src][dst][0]['weight'] = 0
-                log.info("Adjusted weight of link " + str(src) + " -> " + str(dst) + "back to normal")
+                log.info("Adjusted weight of link " + str(src) + " -> " + str(dst) + " back to normal")
 
 
     # If we receive any other packet that isn't a delay probe
@@ -104,6 +105,9 @@ def _handle_packetin(event):
         # If we don't get a result back for this, this means there's no node for this host yet
         if not _get_node_by_nx_id(host_mac):
             g.add_node(host_mac, name=host_name, node_type="host")
+            # Add the host to cmf (check ma flow, flow logger)
+            if host_mac not in cmf:
+                cmf[host_mac] = {}
     
         # Host nodes should only have an edge added if they don't have any edges. Hosts can only have 1 edge, which will be the link to their switch
         if len(g.edges([host_mac])) == 0:
@@ -123,6 +127,12 @@ def _handle_packetin(event):
                 path = nx.shortest_path(g, source=str(packet.src), target=str(packet.dst), weight='weight')
                 log.info("Generated path: " + str(path))
                 _generate_flow_rules(path, event, sw_dpid)
+                # Log this path in cmf (check ma flow, flow logger)
+                if not cmf[str(packet.src)].get(str(packet.dst)):
+                    cmf[str(packet.src)][str(packet.dst)] = []
+                if [str(path)] != cmf[str(packet.src)][str(packet.dst)][-1:]: #if the new path is diff. from the most recent saved path
+                    cmf[str(packet.src)][str(packet.dst)].append(str(path))
+                    _save_cmf_json_data()
         except nx.exception.NetworkXNoPath as e:
             log.error("Could not calculate path between "+str(packet.src)+" and "+str(packet.dst)+": "+str(e))
 
@@ -301,14 +311,21 @@ def _save_graph_json_data():
     f.write(json.dumps(json_graph.node_link_data(g),indent=2,default=lambda o: '<not serializable>'))
     f.close()
 
+def _save_cmf_json_data():
+    global cmf
+    f = open("check_ma_flow.json",'w')
+    f.write(json.dumps(cmf, indent=2))
+    f.close()
+
 ##############################################
 #                  LAUNCH                    #
 ##############################################
 
 def launch():
-    global g, MODULE_START
+    global g, MODULE_START, cmf
     MODULE_START = time.time() * 1000
     g = nx.MultiDiGraph()
+    cmf = {}
     
     def start():
         core.openflow.addListenerByName("ConnectionUp", _handle_connectionup)
